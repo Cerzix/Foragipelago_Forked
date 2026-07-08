@@ -40,19 +40,42 @@
         }
     }
     
+#define get_datapackage(str_json)
+    Trace(str_json)
+    variable_global_set("json",json_decode(str_json))
+    global.json = variable_global_get("json","map")
+    variable_global_set("gear", ds_map_find_value(global.json,"Gear"))
+    var gear = variable_global_get("gear","map")
+    if(is_undefined(gear)){
+        Trace("Something is wrong : get_datapackage")
+        return;
+    }
+    Trace(gear)
+    for(var i = 0; i < array_length(global.AP_Gear_Name); i++){
+        var name = global.AP_Gear_Name[i]
+        if(is_undefined(gear)){
+            Trace("Something is very wrong : get_datapackage")
+            return;
+        }
+        if(ds_map_exists(gear,name)){
+            var tier = ds_map_find_value(gear,name)
+            setCraftTier(name,tier)
+        }
+    }
+    
 #define send_goal()
     http_post_string(global.URL + "Goal","test") //TODO : Maybe have an actual message
     
-    
-#define OnHTTPAsync(async_load)
 
+#define OnHTTPAsync(async_load)
     result = async_load[? "result"]
     url = async_load[? "url"]
     http_status = async_load[? "http_status"]
     status = async_load[? "status"]
     if(status < 0){
         Trace("Connection with archipelago failed")
-        Trace("Please connect to client before loading the save")
+        Trace("Please connect to client before compiling the mod")
+        Trace("If the client is connected, type /recompile or boot up the game again")
         Trace("status : " + string(status))
         global.get = -60 //Try to send another get command later, to not flood.
         return
@@ -69,6 +92,10 @@
             break
         case "http://127.0.0.1:8000/Items":
             get_items(result)
+            break
+        case "http://127.0.0.1:8000/Datapackage":
+            get_datapackage(result)
+            Trace("Datapackage Loaded, enjoy your foragipelago experience")
             break
         default:
             //Trace(url)

@@ -13,7 +13,7 @@
     create_APItems();
     Trace("Creating Archipelago Items...")
     create_items();
-	apitem_test()
+	apitem_test();
     global.Level = 1;
     global.pendingSkillPoints = 0;
     global.estimatedskills = 0;
@@ -25,6 +25,8 @@
     	global.playerGear[i] = 0;
     }
     Trace("Loaded Foragipelago!")
+    Trace("Fetching Datapackage from the AP server, wait before playing.")
+    http_get(global.URL + "Datapackage")
     if(room = rmGame){
     	Trace("WARNING: Do not recompile during a save")
     	Trace("Always leave the save then join back in")
@@ -86,7 +88,16 @@
     	StructureEdit(station,StructureData.GearCategories,undefined);
     	StructureEdit(station, StructureData.Items,station_items)
     }
-    
+
+#define setCraftTier(name,tier)
+	var station = ds_map_find_value(global.AP_Gear_Station, name)
+	var station_map = ds_map_find_value(global.AP_Gear_Index, station)
+	var index = ds_map_find_value(station_map, name)
+	var stationItems = ds_map_find_value(global.stationItems, station)
+	var gear = ds_map_find_value(global.AP_Items, name)
+	stationItems[index] = gear[tier]
+	ds_map_set(global.stationItems,station,stationItems)
+	StructureEdit(global.stations[? station], StructureData.Items,stationItems)
     
 #define string_split(str, delimiter) //Because this api doesn't have access to something like that
 	//I'm not sure if it's used rn
@@ -195,6 +206,53 @@
 	    }
 	    global.get++;
 	}
+	
+#define OnLoad() //When a save file is loaded
+	global.Level = objPlayer.level
+	var _map = ModSaveDataFetch()
+	Trace("Loading")
+	//Loading gear
+	for(var i = 0; i < array_length(global.AP_Gear_Name);i++){
+	    var name = global.AP_Gear_Name[i]
+	    if(is_undefined(name)){
+	    	Trace("Something is wrong : save")
+	    	return
+	    }
+	    var index = global.Toolbar_IDs[i]
+	    var tier = _map[? name]
+	    if(!is_undefined(tier)){
+	    	global.playerGear[index] = tier
+	    }
+	}
+	//Loading skills
+	for(var i = 0; i < 64; i++){
+		var name = "skill" + string(i)
+		var skill = _map[? name]
+		if(!is_undefined(skill)){
+			global.f_skills[i] = _map[? name]
+		}
+	}
+	
+#define OnSave() //When a file is being saved, before mod chunks are saved.
+	var _map = ds_map_create()
+	Trace("Saving")
+	for(var i = 0; i < array_length(global.AP_Gear_Name);i++){
+	    var name = global.AP_Gear_Name[i]
+	    if(is_undefined(name)){
+	    	Trace("Something is wrong : save")
+	    	return
+	    }
+	    var index = global.Toolbar_IDs[i]
+	    var tier = global.playerGear[index]
+	    _map[? name] = tier
+	}
+	
+	for(var i = 0; i < 64; i++){
+		var name = "skill" + string(i)
+		var skill = global.f_skills[i];
+		_map[? name] = skill
+	}
+	ModSaveDataSubmit(_map)
 #define handleSkill()
 	global.skills = variable_global_get("skillUnlocked")
     if (global.estimatedskills == 0){ //No Skill Points, show everything
