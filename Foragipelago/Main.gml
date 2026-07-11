@@ -150,7 +150,7 @@
 		}
 	}
 
-#define OnStep //Avoid using unless necessary, could cause performance issues
+#define OnStep //Avoid using unless necessary, could cause performance issues (called every frame)
 	if(room == rmSkillGrid) {//Skill menu
 		handleSkill()
 	}
@@ -196,6 +196,13 @@
 	    				DropItem(objPlayer.x,objPlayer.y,item,1)
 	    			}
 	    		}
+	    	}
+	    	//Handle Unlocked bools of AP Gear, continuously match them with vanilla gear
+	    	var apGears = global.AP_Items[? name]
+	    	var fGears = global.playerGearMap[? name]
+	    	for(var k = 0; k < array_length(apGears);k++){
+	    		var unlock = ItemGet(fGears[k+1],ItemData.Unlocked)
+	    		ItemEdit(apGears[k],ItemData.Unlocked,unlock)
 	    	}
 	    }
 	    ToolbarRefresh(true)

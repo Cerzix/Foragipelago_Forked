@@ -1,10 +1,9 @@
 #define create_APItems //Create every AP items to replace the unrandomized ones
     gearAP = GearCategoryCreate(undefined, "AP", false, false)
     global.AP_Logo = sprite_add("Resources\\Sprites\\logo.png", 1, false, false, 12, 12)
-    //TODO : make sure everything follows the id order
     global.AP_Gear_Name = ["pickaxe","shovel","sword","bow","ice rod","fire rod","thunder rod","amulet","boots","gloves","book","backpack","wallet","necro rod","obliterator","hammer","fishing"] 
     global.AP_Gear_IDs = ds_map_create();
-    var AP_base_IDs = [202,211,221,231,296,292,294,241,10,261,271,282,251,298,263,261,262] //Base ids for the locations in ap, for each type of gear
+    var AP_base_IDs = [202,211,221,231,296,292,294,241,10,261,271,282,251,298,301,299,300] //Base ids for the locations in ap, for each type of gear
     global.Toolbar_IDs = [];
     for(var i = 0; i < 13; i++){
         global.Toolbar_IDs[i] = i;
@@ -55,7 +54,7 @@
             data[6], // Crafting Materials
             ScriptWrap(NoUse), // On Use Effect
             60 * 1, // Frames To Craft
-            true // Unlocked
+            true // Unlocked, this is changed later.
             )
             GearCategoryAddItems(gearAP, AP_Item)
             AP_Gear[i] = AP_Item
