@@ -41,7 +41,6 @@
     }
     
 #define get_datapackage(str_json)
-    Trace(str_json)
     variable_global_set("json",json_decode(str_json))
     global.json = variable_global_get("json","map")
     variable_global_set("gear", ds_map_find_value(global.json,"Gear"))
@@ -50,7 +49,6 @@
         Trace("Something is wrong : get_datapackage")
         return;
     }
-    Trace(gear)
     for(var i = 0; i < array_length(global.AP_Gear_Name); i++){
         var name = global.AP_Gear_Name[i]
         if(is_undefined(gear)){
