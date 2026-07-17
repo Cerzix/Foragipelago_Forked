@@ -72,8 +72,8 @@
     status = async_load[? "status"]
     if(status < 0){
         Trace("Connection with archipelago failed")
-        Trace("Please connect to client before compiling the mod")
-        Trace("If the client is connected, type /recompile or boot up the game again")
+        Trace("Please connect to Forager Client before compiling the mod")
+        Trace("If the client is connected, recompile in the main menu or boot up the game again")
         Trace("status : " + string(status))
         global.get = -60 //Try to send another get command later, to not flood.
         return

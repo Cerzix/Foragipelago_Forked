@@ -49,7 +49,12 @@ The mods folder for Linux should be located at: `~/.steam/steam/steamapps/compat
 - You can not run 2 instances of the Forager Client on the same PC at once or it will break
 - To transfer the save to another PC, you need to either transfer the save file (located at `%LOCALAPPDATA%\Forager\`)
   > If you are on the same steam account on another PC, then it can be done automatically with cloud save from Steam
+- If you have skill points, then a specific skill is buyable
+- If you have no skill points, all skills are visible, helps with knowing what skill to hint for.
+- Never, EVER, type /recompile while inside a save. Stuff will break.
 - For any questions or issues, just write a message in the [Discord channel](https://discord.com/channels/731205301247803413/1196567161691443220) :)
+
+
 
 ---
 
