@@ -7,6 +7,19 @@
     http_get(global.URL + "Items")
 
 #define get_items(str_json) //Grabs and updates the obtained items recieved by the server.
+    if is_undefined(str_json){
+        global.errorcounter = global.errorcounter + 1
+        if(global.errorcounter > 5){
+            Trace("A value seems to be constantly wrong, report this to Olixx")
+            global.errorcounter = 0
+        }
+        return
+    }
+    global.errorcounter = 0
+    if !is_string(str_json){
+        Trace("Something's off with this value, report this to Olixx")
+        Trace(str_json)
+    }
     variable_global_set("json",json_decode(str_json))
     global.json = variable_global_get("json","map")
     variable_global_set("gear", ds_map_find_value(global.json,"Gear"))
@@ -60,6 +73,19 @@
             setCraftTier(name,tier)
         }
     }
+    global.goal = ds_map_find_value(global.json, "Goal")
+    if is_undefined(global.goal){
+        return
+    }
+    if(global.goal != "level") {
+        global.GoalLevel = -1
+        Trace("something's wrong with the goal")
+        Trace(goal)
+    }
+    else{
+        global.GoalLevel = ds_map_find_value(global.json, "GoalLevel")
+        Trace(global.GoalLevel)
+    }
     
 #define send_goal()
     http_post_string(global.URL + "Goal","test") //TODO : Maybe have an actual message
@@ -72,8 +98,8 @@
     status = async_load[? "status"]
     if(status < 0){
         Trace("Connection with archipelago failed")
-        Trace("Please connect to Forager Client before compiling the mod")
-        Trace("If the client is connected, recompile in the main menu or boot up the game again")
+        Trace("Please connect to client before compiling the mod")
+        Trace("If the client is connected, type /recompile or boot up the game again")
         Trace("status : " + string(status))
         global.get = -60 //Try to send another get command later, to not flood.
         return

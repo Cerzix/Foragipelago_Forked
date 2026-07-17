@@ -1,12 +1,6 @@
 #define Main
     Trace("Loading Foragipelago...")
     global.URL = "http://127.0.0.1:8000/"
-    CommandCreate("test_post", 0, ScriptWrap(test_post))
-    CommandCreate("test_get", 0, ScriptWrap(test_get))
-    CommandCreate("test_gear", 0, ScriptWrap(test_gear_get),"name")
-    CommandCreate("skill_tests", 0, ScriptWrap(skill_test), "index")
-    CommandCreate("test",0,ScriptWrap(random_texst))
-    CommandCreate("apitem", 0, ScriptWrap(apitem_test))
     Trace("Loading Forager Items...")
     load_items();
     Trace("Creating Checks...")
@@ -16,11 +10,14 @@
 	apitem_test();
     global.Level = 1;
     global.pendingSkillPoints = 0;
-    global.estimatedskills = 0;
-    global.get_interval = 45;
-    global.get = 0;
+    global.estimatedskills = 0; //Unused?
+    global.get_interval = 45; //Used to slow down when the mod send a GET request to the mod
+    global.get = 0; //The game crashes less often due to that interval.
     global.goaled = 0
+    global.errorcounter = 0 //Undefined values for get requests
     global.playerGear = []
+    global.goal = "level"
+    global.GoalLevel = 65
     for(var i = 0; i < 41; i++){
     	global.playerGear[i] = 0;
     }
@@ -33,28 +30,9 @@
     }
 #define NoUse //Used for AP items
 
-#define test_post() //Old test function, fairly useless now
-    Trace("Testing Connection")
-    Trace(objPlayer.gearCurrent)
-    http_post_string("http://127.0.0.1:8000/gear", string(objPlayer.gearCurrent))
-    
-#define test_get() //Old test function, the code already periodically sends a GET request
-    Trace("Testing get")
-    
-    send_get_items();
-
-#define random_texst() //Old function to try and find where certain piece of data were located
-    Trace(typeof(objPlayer.gearCurrent))
-    Trace(objMuseumBundle.completed)
-
-#define test_gear_get(arr) //Simulate having been sent a progressive check, test function.
-	var name = arr[0]
-    var tier = ds_map_find_value(global.f_Gear,name) + 1
-    ds_map_set(global.f_Gear,name,tier)
-
-#define apitem_test //Initialize structures with tier 1 of each craftable gear
+#define apitem_test //Initialize structures with the valid tier of each craftable gear
 	//Test function that has been integrated into the main code
-	//TODO: What if the player joins during the middle of a sync ? Fix that
+
 	global.stationItems = ds_map_create()
 	global.stations = ds_map_create()
 	ds_map_set(global.stations,"forge",Structure.Forge)
@@ -127,7 +105,7 @@
 		}
 	}
     
-#define OnItemGet(item,quantity)
+#define OnItemGet(item,quantity) //Used to check when an AP Gear has been crafted.
 	for(var k = 0; k < array_length(global.AP_Gear_Name); k++){
 		var name = global.AP_Gear_Name[k]
 		var gear = ds_map_find_value(global.AP_Items, name)
@@ -156,19 +134,20 @@
 	}
 #define OnSystemStep //API function called periodically
 	//Anything to check constantly but not every frame should be here
-	if(room == rmGame){
+	if(instance_exists(objPlayer)){
 		objPlayer.skills += global.pendingSkillPoints; //Give the player skill points earned from skills items, to buy them
 		global.pendingSkillPoints = 0;
 		if(objPlayer.level > global.Level){ //The player leveled up in some way.
 			global.Level++
 			var id = 300 + global.Level
 			objPlayer.skills = objPlayer.skills - 1
-			send_check(id); //Missed check if client is disconnected
+			if(global.Level < global.GoalLevel || global.GoalLevel == -1){
+				send_check(id); //Missed check if client is disconnected
+			}
 		}
 		global.estimatedskills = objPlayer.skills
-		if(objPlayer.level >= 65 && global.goaled == 0){
-			//TODO, be careful when other goals are added.
-			//Only do that when no other goals are added
+		if(objPlayer.level >= global.GoalLevel && global.GoalLevel != -1 && global.goaled == 0){
+			//Level goal achieved, only if it's the correct goal
 			send_goal();
 			global.goaled = 1;
 		}
@@ -184,6 +163,8 @@
 	    	}
 	    	if(ds_map_exists(global.playerGearMap,name)){
 	    		var tier = ds_map_find_value(global.f_Gear,name)
+	    		var items = ds_map_find_value(global.playerGearMap, name)
+	    		var item = items[min(tier,array_length(items)-1)]
 	    		var item = ds_map_find_value(global.playerGearMap,name)[tier]
 	    		if(!is_undefined(item)){
 	    			if(i > array_length(global.playerGear)){
@@ -217,12 +198,11 @@
 #define OnLoad() //When a save file is loaded
 	global.Level = objPlayer.level
 	var _map = ModSaveDataFetch()
-	Trace("Loading")
 	//Loading gear
 	for(var i = 0; i < array_length(global.AP_Gear_Name);i++){
 	    var name = global.AP_Gear_Name[i]
 	    if(is_undefined(name)){
-	    	Trace("Something is wrong : save")
+	    	Trace("Something is wrong : loading")
 	    	return
 	    }
 	    var index = global.Toolbar_IDs[i]
@@ -242,7 +222,6 @@
 	
 #define OnSave() //When a file is being saved, before mod chunks are saved.
 	var _map = ds_map_create()
-	Trace("Saving")
 	for(var i = 0; i < array_length(global.AP_Gear_Name);i++){
 	    var name = global.AP_Gear_Name[i]
 	    if(is_undefined(name)){

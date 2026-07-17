@@ -113,4 +113,24 @@
     ds_map_set(global.AP_Gear_Station,"obliterator","factory")
     ds_map_set(global.AP_Gear_Index, "factory",AP_Factory_Index)
     
+    global.AP_Chests = []  //Array of ap items for chest contents
+    for(var k = 0; k < 46; k++){
+        var AP_Item = ItemCreate(
+            undefined, // Index
+            "Chest #" + string(k), // Name
+            "Hope it's good!", // Description
+            global.AP_Logo, // Sprite
+            ItemType.Gear, // Item Type
+            ItemSubType.None, // Sub Type
+            0, // Sell Value
+            0, // Healing Value
+            0, // Energy Value
+            [], // Crafting Materials
+            ScriptWrap(NoUse), // On Use Effect
+            60 * 1, // Frames To Craft
+            false // Unlocked, this is changed later.
+        )
+        global.AP_Chests[k] = AP_Item
+    }
+    
     
