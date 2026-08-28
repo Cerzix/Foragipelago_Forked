@@ -112,7 +112,7 @@
     var hammer = [undefined,Item.Hammer]
     ds_map_set(global.playerGearMap, "hammer",hammer)
     var fishing = [undefined,Item.FishingRod]
-    ds_map_set(global.playerGearMap, "fishing",fishing)
+    ds_map_set(global.playerGearMap, "fishing rod",fishing)
     var obliterator = [undefined,Item.Obliterator]
     ds_map_set(global.playerGearMap, "obliterator",obliterator)
     var backpack = []

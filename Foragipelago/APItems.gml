@@ -1,7 +1,7 @@
 #define create_APItems //Create every AP items to replace the unrandomized ones
     gearAP = GearCategoryCreate(undefined, "AP", false, false)
     global.AP_Logo = sprite_add("Resources\\Sprites\\logo.png", 1, false, false, 12, 12)
-    global.AP_Gear_Name = ["pickaxe","shovel","sword","bow","ice rod","fire rod","thunder rod","amulet","boots","gloves","book","backpack","wallet","necro rod","obliterator","hammer","fishing"] 
+    global.AP_Gear_Name = ["pickaxe","shovel","sword","bow","ice rod","fire rod","thunder rod","amulet","boots","gloves","book","backpack","wallet","necro rod","obliterator","hammer","fishing rod"] 
     global.AP_Gear_IDs = ds_map_create();
     var AP_base_IDs = [202,211,221,231,296,292,294,241,10,261,271,282,251,298,301,299,300] //Base ids for the locations in ap, for each type of gear
     global.Toolbar_IDs = [];
@@ -11,7 +11,7 @@
     global.Toolbar_IDs[13] = 34 //Necro rod
     global.Toolbar_IDs[14] = 35; //Obliterator
     global.Toolbar_IDs[15] = 39; //Hammer
-    global.Toolbar_IDs[16] = 40; //Fishing
+    global.Toolbar_IDs[16] = 40; //Fishing rod
     global.AP_Items = ds_map_create();
     global.AP_Gear_Tiers = ds_map_create();
     ds_map_set(global.AP_Gear_Tiers,"shovel",5)
@@ -29,7 +29,7 @@
     ds_map_set(global.AP_Gear_Tiers,"fire rod",1)
     ds_map_set(global.AP_Gear_Tiers,"thunder rod",1)
     ds_map_set(global.AP_Gear_Tiers, "necro rod",1)
-    ds_map_set(global.AP_Gear_Tiers,"fishing",1)
+    ds_map_set(global.AP_Gear_Tiers,"fishing rod",1)
     ds_map_set(global.AP_Gear_Tiers,"obliterator",1)
     for(var k = 0; k < array_length(global.AP_Gear_Name); k++){
         var AP_Gear = []
@@ -69,8 +69,8 @@
     ds_map_set(global.AP_Gear_Station,"shovel", "forge")
     ds_map_set(AP_Forge_Index,"hammer",4)
     ds_map_set(global.AP_Gear_Station,"hammer", "forge")
-    ds_map_set(AP_Forge_Index,"fishing",5)
-    ds_map_set(global.AP_Gear_Station,"fishing", "forge")
+    ds_map_set(AP_Forge_Index,"fishing rod",5)
+    ds_map_set(global.AP_Gear_Station,"fishing rod", "forge")
     ds_map_set(AP_Forge_Index,"pickaxe",6)
     ds_map_set(global.AP_Gear_Station,"pickaxe", "forge")
     ds_map_set(AP_Forge_Index,"sword",8)

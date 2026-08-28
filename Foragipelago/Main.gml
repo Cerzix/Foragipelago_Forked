@@ -16,8 +16,10 @@
     global.goaled = 0
     global.errorcounter = 0 //Undefined values for get requests
     global.playerGear = []
+    global.gearCollected = true
     global.goal = "level"
     global.GoalLevel = 65
+    global.easierCraft = 0
     for(var i = 0; i < 41; i++){
     	global.playerGear[i] = 0;
     }
@@ -105,7 +107,8 @@
 		}
 	}
     
-#define OnItemGet(item,quantity) //Used to check when an AP Gear has been crafted.
+#define OnItemGet(item,quantity) 
+	//Used to check when an item has been picked up, whether it's an AP item or a Tool.
 	for(var k = 0; k < array_length(global.AP_Gear_Name); k++){
 		var name = global.AP_Gear_Name[k]
 		var gear = ds_map_find_value(global.AP_Items, name)
@@ -126,6 +129,15 @@
 				RemoveItem(item,quantity)
 			}
 		}
+		//Check when a tool or an accessory is collected, to allow dropping the next one.
+		var index = global.Toolbar_IDs[k]
+	    var current_tier = global.playerGear[index];
+	    var items = ds_map_find_value(global.playerGearMap, name)
+	   	var current_item = items[min(current_tier+1,array_length(items)-1)]
+	   	if current_item == item{
+	   		global.playerGear[index] = current_tier + 1
+	   		global.gearCollected = true
+	   	}
 	}
 
 #define OnStep //Avoid using unless necessary, could cause performance issues (called every frame)
@@ -163,18 +175,19 @@
 	    	}
 	    	if(ds_map_exists(global.playerGearMap,name)){
 	    		var tier = ds_map_find_value(global.f_Gear,name)
+	    		var index = global.Toolbar_IDs[i]
+	    		var current_tier = global.playerGear[index];
 	    		var items = ds_map_find_value(global.playerGearMap, name)
-	    		var item = items[min(tier,array_length(items)-1)]
-	    		var item = ds_map_find_value(global.playerGearMap,name)[tier]
+	    		tier = min(tier,array_length(items)-1)
+	    		var item = items[min(current_tier+1,array_length(items)-1)]
 	    		if(!is_undefined(item)){
 	    			if(i > array_length(global.playerGear)){
 	    				Trace("Something is wrong : playerGear")
 	    			}
-	    			var index = global.Toolbar_IDs[i]
-	    			var current_tier = global.playerGear[index];
-	    			if(tier > current_tier){
-	    				global.playerGear[index] = tier;
+	    			if(tier > current_tier && global.gearCollected){
+	    				//The goal is to drop them one at a time, to avoid bugs.
 	    				DropItem(objPlayer.x,objPlayer.y,item,1)
+	    				global.gearCollected = false
 	    			}
 	    		}
 	    	}
@@ -220,6 +233,11 @@
 		}
 	}
 	
+	var collected = _map[? "gearCollected"]
+	if !is_undefined(collected){
+		global.gearCollected = collected
+	}
+	
 #define OnSave() //When a file is being saved, before mod chunks are saved.
 	var _map = ds_map_create()
 	for(var i = 0; i < array_length(global.AP_Gear_Name);i++){
@@ -238,6 +256,8 @@
 		var skill = global.f_skills[i];
 		_map[? name] = skill
 	}
+	_map[? "gearCollected"] = global.gearCollected
+	
 	ModSaveDataSubmit(_map)
 #define handleSkill()
 	global.skills = variable_global_get("skillUnlocked")

@@ -54,6 +54,10 @@
     }
     
 #define get_datapackage(str_json)
+    Trace(str_json)
+    if is_undefined(str_json){
+        return
+    }
     variable_global_set("json",json_decode(str_json))
     global.json = variable_global_get("json","map")
     variable_global_set("gear", ds_map_find_value(global.json,"Gear"))
@@ -73,19 +77,27 @@
             setCraftTier(name,tier)
         }
     }
+    
     global.goal = ds_map_find_value(global.json, "Goal")
-    if is_undefined(global.goal){
-        return
+    if !is_undefined(global.goal){
+        if(global.goal != "level") {
+            global.GoalLevel = -1
+            Trace("something's wrong with the goal")
+        }
+        else{
+            global.GoalLevel = ds_map_find_value(global.json, "GoalLevel")
+        }
     }
-    if(global.goal != "level") {
-        global.GoalLevel = -1
-        Trace("something's wrong with the goal")
-        Trace(goal)
+    
+    var easierCraft = ds_map_find_value(global.json, "EasierCraft")
+    if (easierCraft == 1){
+        global.easierCraft = 1
+        ItemEdit(Item.Coal, ItemData.Blueprint, [Item.Wood,1])
+        ItemEdit(Item.IronIngot, ItemData.Blueprint, [Item.IronOre,1,Item.Coal,1])
+        ItemEdit(Item.GoldIngot, ItemData.Blueprint, [Item.GoldOre,1,Item.Coal,1])
+        ItemEdit(Item.Glass, ItemData.Blueprint, [Item.Sand,1,Item.Coal,1])
     }
-    else{
-        global.GoalLevel = ds_map_find_value(global.json, "GoalLevel")
-        Trace(global.GoalLevel)
-    }
+    
     
 #define send_goal()
     http_post_string(global.URL + "Goal","test") //TODO : Maybe have an actual message
