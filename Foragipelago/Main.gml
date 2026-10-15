@@ -7,6 +7,7 @@
     create_APItems();
     Trace("Creating Archipelago Items...")
     create_items();
+    init_filler();
 	apitem_test();
     global.Level = 1;
     global.pendingSkillPoints = 0;
@@ -53,6 +54,7 @@
 	global.pendingDeath = undefined
 	global.playerAlive = true
 	global.deathlinkKill = false
+	reset_filler_state()
 	for(var i = 0; i < 41; i++){
 		global.playerGear[i] = 0;
 	}
@@ -215,6 +217,7 @@
 		else if(objPlayer.hp > 0){
 			global.playerAlive = true
 		}
+		update_effects() //Buffs and traps that last a while
 	}
 #define OnSystemStep //API function called periodically
 	//Anything to check constantly but not every frame should be here
@@ -304,6 +307,7 @@
 	    	}
 	    	global.pendingDeath = undefined
 	    }
+	    update_filler() //Filler items and traps
 	    if(global.deathpoll >= global.deathpoll_interval){
 	    	send_deathpoll()
 	    	global.deathpoll = 0
@@ -347,6 +351,10 @@
 	if(is_string(checks)){
 		global.sentChecks = string_split(checks, ",")
 	}
+	var fillerApplied = _map[? "fillerApplied"]
+	if(!is_undefined(fillerApplied)){
+		global.fillerApplied = fillerApplied
+	}
 	//gearCollected isn't loaded on purpose : a drop that wasn't picked up is dropped again,
 	//instead of blocking every future drop if it got lost.
 
@@ -377,6 +385,10 @@
 		checks += string(global.sentChecks[i])
 	}
 	_map[? "checks"] = checks
+	_map[? "fillerApplied"] = global.fillerApplied
+	if(instance_exists(objPlayer)){
+		restore_speed() //Never save the boosted or slowed speed, the effect is reapplied on the next frame
+	}
 
 	ModSaveDataSubmit(_map)
 #define handleSkill()

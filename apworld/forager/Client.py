@@ -1,4 +1,5 @@
 import asyncio
+import time
 import Utils
 import websockets
 import functools
@@ -10,6 +11,16 @@ from CommonClient import CommonContext, gui_enabled, ClientCommandProcessor, log
 import aiohttp.web
 
 DEBUG = True
+
+FILLER_IDS = range(400, 600) # Filler items and traps, the mod applies them in the order they were received
+
+# TrapLink : trap names from other games that Forager can play, with the Forager trap item id
+TRAP_LINK_NAMES: dict[str, int] = {
+    "Energy Drain Trap": 500, "Exhaustion Trap": 500, "Tired Trap": 500, "Fatigue Trap": 500, "Hunger Trap": 500,
+    "Slowness Trap": 501, "Slow Trap": 501, "Slowdown Trap": 501, "Freeze Trap": 501, "Ice Trap": 501,
+    "Stun Trap": 501, "Paralyze Trap": 501,
+    "Tax Trap": 502, "Money Trap": 502, "Coin Trap": 502, "Robbery Trap": 502, "Theft Trap": 502,
+}
 
 class ForagerJSONToTextParser(JSONtoTextParser):
     def _handle_color(self, node: JSONMessagePart):
@@ -39,6 +50,7 @@ class ForagerContext(CommonContext):
         self.goalLevel : int = 65
         self.easierCraft : int = 0
         self.pending_death : str | None = None # DeathLink received, waiting for the mod to poll it
+        self.pending_traps : list[int] = [] # TrapLink traps received, waiting for the mod to poll them
 
     async def server_auth(self, password_requested: bool = False):
         if password_requested and not self.password:
@@ -93,7 +105,9 @@ class ForagerContext(CommonContext):
             if ("easier_craft" in self.slot_data and self.slot_data["easier_craft"]):
                 self.easierCraft = 1
             self.pending_death = None # Don't kill the player for a death from a previous connection
-            asyncio.create_task(self.update_death_link(bool(self.slot_data.get("death_link", False))))
+            self.pending_traps.clear()
+            asyncio.create_task(self.update_link_tags(bool(self.slot_data.get("death_link", False)),
+                                                      bool(self.slot_data.get("trap_link", False))))
             if DEBUG:
                 print(json)
             self.connected_msg = encode([json])
@@ -118,6 +132,9 @@ class ForagerContext(CommonContext):
                 self.full_inventory.append(NetworkItem(*item))
 
             self.server_msgs.append(encode([args]))
+
+        elif cmd == "Bounced":
+            self.on_trap_link(args)
 
         elif cmd == "RoomInfo":
             self.seed_name = args["seed_name"]
@@ -158,6 +175,44 @@ class ForagerContext(CommonContext):
         await self.send_msgs(message)
         return aiohttp.web.json_response({"message": "ok"})
 
+    async def update_link_tags(self, death_link: bool, trap_link: bool):
+        """Turns the DeathLink and TrapLink tags on/off, and tells the server if they changed"""
+        old_tags = self.tags.copy()
+        for tag, enabled in (("DeathLink", death_link), ("TrapLink", trap_link)):
+            if enabled:
+                self.tags.add(tag)
+            else:
+                self.tags.discard(tag)
+        if old_tags != self.tags and self.server and not self.server.socket.closed:
+            await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+
+    def on_trap_link(self, args: dict) -> None:
+        """Another linked player received a trap, the mod plays the Forager version on its next poll"""
+        data = args.get("data", {})
+        if "TrapLink" not in self.tags or "TrapLink" not in args.get("tags", []):
+            return
+        if self.slot is None or data.get("source") == self.player_names.get(self.slot):
+            return
+        trap_id = TRAP_LINK_NAMES.get(data.get("trap_name", ""))
+        if trap_id is not None:
+            logger.info(f"TrapLink: {data['trap_name']} from {data.get('source', 'someone')}")
+            self.pending_traps.append(trap_id)
+
+    async def trapHandler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
+        """Handles POST at /Trap : {"Trap" : id}, the mod played a trap item, send it to the TrapLink players"""
+        try:
+            trap_id = int((await request.json())["Trap"])
+        except (ValueError, KeyError, TypeError):
+            return aiohttp.web.json_response({"message": "invalid trap"}, status=400)
+        if "TrapLink" in self.tags and self.slot is not None:
+            trap_name = self.item_names.lookup_in_game(trap_id, self.game)
+            await self.send_msgs([{
+                "cmd": "Bounce", "tags": ["TrapLink"],
+                "data": {"time": time.time(), "source": self.player_names[self.slot], "trap_name": trap_name}
+            }])
+            logger.info(f"TrapLink: sent {trap_name}")
+        return aiohttp.web.json_response({"message": "ok"})
+
     def on_deathlink(self, data: dict) -> None:
         """Another linked player died, the mod kills the player on its next poll."""
         super().on_deathlink(data)
@@ -170,9 +225,11 @@ class ForagerContext(CommonContext):
         return aiohttp.web.json_response({"message": "ok"})
 
     async def deathpollHandler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
-        """Handles GET at /Deathpoll : {"Death" : 1, "Cause" : "..."} once for each received DeathLink"""
+        """Handles GET at /Deathpoll : {"Death" : 1, "Cause" : "...", "Traps" : [501]}, every received DeathLink and
+        TrapLink trap is only sent once"""
         cause, self.pending_death = self.pending_death, None
-        return aiohttp.web.json_response({"Death": int(cause is not None), "Cause": cause or ""})
+        traps, self.pending_traps = self.pending_traps, []
+        return aiohttp.web.json_response({"Death": int(cause is not None), "Cause": cause or "", "Traps": traps})
 
     def build_item_response(self):
         """
@@ -182,6 +239,7 @@ class ForagerContext(CommonContext):
         """
         skills = [0 for i in range(64)]
         gear = {}
+        filler = []
         for item in self.items_received:
             if(item[0] >= 300 and item[0] < 364):
                 skills[item[0] - 300] = 1
@@ -191,9 +249,12 @@ class ForagerContext(CommonContext):
                     name = name[12:]
                 name = name.lower()
                 gear[name] = gear.get(name,0) + 1
+            elif(item[0] in FILLER_IDS):
+                filler.append(item[0])
         itemmessage = {
             "Gear" : gear,
-            "Skills" : skills
+            "Skills" : skills,
+            "Filler" : filler
         }
         return itemmessage
     

@@ -58,6 +58,7 @@ The mods folder for Linux should be located at: `~/.steam/steam/steamapps/compat
 - Checks done while the Forager Client is closed or disconnected are remembered in the save and resent about once a minute, so they aren't lost anymore.
 - Rods (Fire, Thunder, Ice, Necro) have no crafting checks in the apworld, so the Spirit Crystal crafts them normally. Progressive rods are still received from Archipelago.
 - DeathLink: enable `death_link` in your yaml. When you die in Forager, everyone with DeathLink dies, and the other way around. Deaths are checked every few seconds.
+- Filler items (coin bags, resource bundles, food, gems, seed packs, potions, bugs, fish and 60 second buffs) and traps (Energy Drain, Slowness, Taxes) are dropped at your feet one by one. `filler_slots` sets how many locations get them, each one leaves out a skill that isn't needed to win. `trap_percentage` sets how many of them are traps, and `trap_link` shares your traps with other Trap Link players.
 - If a received tool is dropped and left behind (for example in a dungeon), it is dropped again once you change room or reload the save.
 - For any questions or issues, just write a message in the [Discord channel](https://discord.com/channels/731205301247803413/1196567161691443220) :)
 
@@ -83,3 +84,4 @@ Goals:
 `Server.py` is a mock of the Forager Client's local HTTP API (port 8000). Run `python Server.py` instead of the Forager Client, then start Forager.
 Type `help` in its console to send gear and skills, change the goal level, and see the checks the mod sends.
 `kill` sends a DeathLink to the game, and deaths in the game are printed in the console.
+`filler <name>` sends a filler item or trap (`filler all` sends every one), `traplink <name>` sends a trap through Trap Link.

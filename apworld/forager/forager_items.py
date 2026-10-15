@@ -28,18 +28,30 @@ class ForagerItem(Item):
         super().__init__(name, classification, code, player)
 
 
-def item_names_of(world: "ForagerWorld", classification: str, tools: bool) -> list[str]:
-    """Names of the items of a classification, either only the Tools or everything but the Tools."""
-    return [name for name, category in world.item_class_sets.get(classification, {}).items()
-            if (category == "Tools") == tools and category not in ["Seals", "Relics"]]
+def item_names_of(world: "ForagerWorld", classification: str, category: str) -> list[str]:
+    """Names of the items of a classification in an items.json category."""
+    return [name for name, item_category in world.item_class_sets.get(classification, {}).items()
+            if item_category == category]
+
+
+def weighted_names(world: "ForagerWorld", category: str) -> tuple[list[str], list[int]]:
+    """Names and weights of the items of an items.json category (Filler, Traps)."""
+    items: dict = world.json_tables["items"][category]
+    return list(items), [data["weight"] for data in items.values()]
+
+
+def random_filler_name(world: "ForagerWorld") -> str:
+    names, weights = weighted_names(world, "Filler")
+    return world.random.choices(names, weights)[0]
 
 
 def create_world_items(world: "ForagerWorld"):
     """Fill every location, in order of priority:
     1. Every progression item, with its full count (progressive tools)
     2. Every other progressive tool, with its full count, so no tool tier is ever missing
-    3. Every other skill, once each and in a random order, until the locations run out
-    4. Filler, if there are still locations left
+    3. The filler slots (filler_slots option), with filler items or traps (trap_percentage option)
+    4. Every other skill, once each and in a random order, until the locations run out
+    5. More filler, if there are still locations left
     There are more of these items than locations (149 for 140 locations at level 65), so the last skills are left
     out. Only at the lowest required levels the tools don't fit either, then random tool tiers are left out."""
     locations_to_fill: int = len(world.multiworld.get_unfilled_locations(world.player))
@@ -51,11 +63,11 @@ def create_world_items(world: "ForagerWorld"):
         return item_tables[categories[name]][name].get("count", 1)
 
     progression: list[str] = []
-    for name in item_names_of(world, "Progression", True) + item_names_of(world, "Progression", False):
+    for name in item_names_of(world, "Progression", "Tools") + item_names_of(world, "Progression", "Skills"):
         progression += [name] * count_of(name)
 
     tool_counts: dict[str, int] = {name: count_of(name) for name in
-                                   item_names_of(world, "Useful", True) + item_names_of(world, "Filler", True)}
+                                   item_names_of(world, "Useful", "Tools") + item_names_of(world, "Filler", "Tools")}
     tools_room: int = locations_to_fill - len(progression)
     while sum(tool_counts.values()) > max(tools_room, 0):
         # Not enough locations for every tool tier, the top tier of a random tool goes
@@ -63,14 +75,24 @@ def create_world_items(world: "ForagerWorld"):
         tool_counts[trimmed] -= 1
     tools: list[str] = [name for name, count in tool_counts.items() for _ in range(count)]
 
-    useful_skills: list[str] = item_names_of(world, "Useful", False)
-    filler_skills: list[str] = [name for name in item_names_of(world, "Filler", False)
-                                if name != world.get_filler_item_name()]
-    world.random.shuffle(useful_skills)
+    skills: list[str] = item_names_of(world, "Useful", "Skills")
+    filler_skills: list[str] = item_names_of(world, "Filler", "Skills")
+    world.random.shuffle(skills)
     world.random.shuffle(filler_skills)
+    skills += filler_skills
 
-    item_names: list[str] = (progression + tools + useful_skills + filler_skills)[:max(locations_to_fill,
-                                                                                       len(progression))]
-    item_names += [world.get_filler_item_name()] * (locations_to_fill - len(item_names))
+    room_left: int = max(locations_to_fill - len(progression) - len(tools), 0)
+    filler_count: int = min(world.options.filler_slots.value, room_left)
+    skills = skills[:room_left - filler_count]
+    filler_count = room_left - len(skills)  # Also fills what the skills can't
 
+    trap_names, trap_weights = weighted_names(world, "Traps")
+    filler: list[str] = []
+    for _ in range(filler_count):
+        if world.random.randrange(100) < world.options.trap_percentage.value:
+            filler.append(world.random.choices(trap_names, trap_weights)[0])
+        else:
+            filler.append(random_filler_name(world))
+
+    item_names: list[str] = progression + tools + skills + filler
     world.multiworld.itempool += [world.create_item(name) for name in item_names]

@@ -56,5 +56,12 @@ class TestLowestGoal(ForagerItemPoolTestBase):
         locations = [loc for loc in self.multiworld.get_locations(self.player) if loc.address is not None]
         self.assertEqual(sum(self.pool_counts().values()), len(locations))
 
-    def test_filler_is_nothing(self) -> None:
-        self.assertEqual(self.world.get_filler_item_name(), "Nothing!")
+    def test_filler_item_name_is_a_filler(self) -> None:
+        for _ in range(20):
+            self.assertIn(self.world.get_filler_item_name(), self.world.json_tables["items"]["Filler"])
+
+    def test_no_room_for_filler(self) -> None:
+        """Tools come before the filler slots"""
+        pool = self.pool_counts()
+        for name in list(self.world.json_tables["items"]["Filler"]) + list(self.world.json_tables["items"]["Traps"]):
+            self.assertEqual(pool[name], 0, name)

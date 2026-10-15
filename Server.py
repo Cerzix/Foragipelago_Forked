@@ -1,12 +1,13 @@
 """Mock of the Archipelago Forager Client's local HTTP API, to test the mod without an Archipelago server.
 
 It answers the same endpoints as the real client (worlds/forager/Client.py), on the same port:
-    GET  /Items        -> {"Gear": {"pickaxe": 2, ...}, "Skills": [0, 1, ...]}  (64 skills)
+    GET  /Items        -> {"Gear": {"pickaxe": 2, ...}, "Skills": [0, 1, ...], "Filler": [400, 501, ...]}
     GET  /Datapackage  -> {"Gear": {<gear>: <crafting checks done>}, "Goal": "level", "GoalLevel": 65, "EasierCraft": 0}
     POST /Locations    <- {"Locations": [202, 302, ...]}
     POST /Goal
     POST /Death        the player died (DeathLink)
-    GET  /Deathpoll    -> {"Death": 1, "Cause": "..."} once after the "kill" command, else {"Death": 0, "Cause": ""}
+    GET  /Deathpoll    -> {"Death": 1, "Cause": "...", "Traps": [501]} DeathLink and TrapLink, each only sent once
+    POST /Trap         <- {"Trap": 501} the mod played a trap item (TrapLink)
 
 Do not run it at the same time as the real Forager Client, both use port 8000.
 Type "help" in the console for the commands.
@@ -14,6 +15,7 @@ Type "help" in the console for the commands.
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import threading
+from pathlib import Path
 
 PORT = 8000
 
@@ -42,6 +44,11 @@ gear_locations = {
     "book": range(271, 279), "backpack": range(282, 287),
     "hammer": range(299, 300), "fishing rod": range(300, 301), "obliterator": range(301, 302),
 }
+# Filler items and traps, from the apworld so the ids always match
+_items_json = json.loads((Path(__file__).parent / "apworld" / "forager" / "data" / "items.json").read_text("utf-8"))
+filler_ids = {name.lower(): data["id"] for category in ("Filler", "Traps") for name, data in _items_json[category].items()}
+filler_names = {item_id: name for name, item_id in filler_ids.items()}
+
 datapackage_gear = ["boots", "pickaxe", "shovel", "sword", "bow", "amulet", "wallet", "gloves", "book", "backpack"]
 
 lock = threading.Lock()
@@ -54,6 +61,8 @@ state = {
     "goaled": False,
     "pending_death": None,
     "deaths": 0,
+    "filler": [],
+    "linked_traps": [],
 }
 
 
@@ -81,7 +90,8 @@ class ClientHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         with lock:
             if self.path == "/Items":
-                return self.send_json({"Gear": dict(state["gear"]), "Skills": list(state["skills"])})
+                return self.send_json({"Gear": dict(state["gear"]), "Skills": list(state["skills"]),
+                                       "Filler": list(state["filler"])})
             if self.path == "/Datapackage":
                 gear = {}
                 for name in datapackage_gear:
@@ -92,7 +102,8 @@ class ClientHandler(BaseHTTPRequestHandler):
                                        "EasierCraft": state["easier_craft"]})
             if self.path == "/Deathpoll":
                 cause, state["pending_death"] = state["pending_death"], None
-                return self.send_json({"Death": int(cause is not None), "Cause": cause or ""})
+                traps, state["linked_traps"] = state["linked_traps"], []
+                return self.send_json({"Death": int(cause is not None), "Cause": cause or "", "Traps": traps})
         self.send_response(404)
         self.end_headers()
 
@@ -120,6 +131,16 @@ class ClientHandler(BaseHTTPRequestHandler):
             if first:
                 print("\n[mod] GOAL COMPLETED")
             return self.send_json({"message": "ok"})
+        if self.path == "/Trap":
+            try:
+                trap = int(json.loads(body)["Trap"])
+            except (ValueError, KeyError, TypeError):
+                print(f"\n[mod] invalid /Trap body: {body!r}")
+                self.send_response(400)
+                self.end_headers()
+                return
+            print(f"\n[mod] played {filler_names.get(trap, trap)}, a TrapLink would be sent")
+            return self.send_json({"message": "ok"})
         if self.path == "/Death":
             with lock:
                 state["deaths"] += 1
@@ -136,6 +157,8 @@ HELP = """Commands:
   easy <on|off>          toggle EasierCraft in the datapackage
   uncheck <id|all>       forget checked locations (to test the resync)
   kill [cause]           send a DeathLink to the mod
+  filler <name|all> [n]  send filler items or traps, like an AP item (names: """ + ", ".join(filler_ids) + """)
+  traplink <name>        send a trap through TrapLink (energy drain trap, slowness trap, tax trap)
   status                 show what was sent and received
   stop                   quit"""
 
@@ -189,6 +212,22 @@ def run_console():
                 elif args[0].isdigit():
                     state["checked"].discard(int(args[0]))
                 print(f"{len(state['checked'])} checked locations left")
+            elif verb in ("filler", "traplink") and args:
+                amount = int(args.pop()) if verb == "filler" and len(args) > 1 and args[-1].isdigit() else 1
+                name = " ".join(args).lower()
+                if verb == "filler" and name == "all":
+                    state["filler"] += list(filler_ids.values())
+                    print(f"Sent every filler item and trap ({len(filler_ids)})")
+                    continue
+                if name not in filler_ids or (verb == "traplink" and filler_ids[name] < 500):
+                    print(f"Unknown {'trap' if verb == 'traplink' else 'filler'} {name!r}")
+                    continue
+                if verb == "filler":
+                    state["filler"] += [filler_ids[name]] * amount
+                    print(f"{name} x{amount} sent ({len(state['filler'])} filler items received in total)")
+                else:
+                    state["linked_traps"].append(filler_ids[name])
+                    print(f"TrapLink {name} queued")
             elif verb == "kill":
                 state["pending_death"] = " ".join(args) or "Tester died in another game"
                 print(f"DeathLink queued : {state['pending_death']}")
@@ -196,6 +235,7 @@ def run_console():
                 print("Gear received :", state["gear"] or "nothing")
                 print("Skills received :", [skill_names[i] for i in range(64) if state["skills"][i]] or "nothing")
                 print("Checked :", sorted(state["checked"]) or "nothing")
+                print("Filler received :", [filler_names[i] for i in state["filler"]] or "nothing")
                 print(f"Goal level : {state['goal_level']}, goal done : {state['goaled']}, "
                       f"EasierCraft : {state['easier_craft']}, deaths sent by the mod : {state['deaths']}")
             else:

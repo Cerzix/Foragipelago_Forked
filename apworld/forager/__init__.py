@@ -7,7 +7,7 @@ from BaseClasses import ItemClassification
 from worlds.LauncherComponents import Component, components, icon_paths, launch as launch_component, Type
 
 from .forager_constants import GAME_NAME, CLIENT_NAME
-from .forager_items import create_world_items, ForagerItem
+from .forager_items import create_world_items, ForagerItem, random_filler_name
 from .forager_rules import create_region_access_rules, create_location_access_rules
 from .forager_webworld import ForagerWebWorld
 from .helper_functions import load_tables, load_json_tables
@@ -96,7 +96,7 @@ class ForagerWorld(World):
 
     def get_filler_item_name(self) -> str:
         """The default picks any item name, which could add extra progressive tools or skills."""
-        return "Nothing!"
+        return random_filler_name(self)
 
 
     def fill_slot_data(self):

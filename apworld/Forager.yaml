@@ -34,7 +34,7 @@ game: Forager
 requires:
   version: 0.6.8 # Version of Archipelago required for this yaml to work as expected.
   game:
-    Forager: 0.2.2 # Version of the world required for this yaml to work as expected.
+    Forager: 0.3.0 # Version of the world required for this yaml to work as expected.
 
 Forager:
   ################
@@ -90,6 +90,41 @@ Forager:
 
   death_link:
     # When you die, everyone who enabled death link dies. Of course, the reverse is true too.
+    'false': 50
+    'true': 0
+
+  ##################
+  # Filler & Traps #
+  ##################
+  filler_slots:
+    # How many locations hold filler items (coins, resources, food, buffs...) and traps.
+    # There are more tools and skills than locations, so every filler slot leaves out one skill that isn't
+    # needed to beat the game. Those skills can't be bought then.
+    #
+    # You can define additional values between the minimum and maximum values.
+    # Minimum value is 0
+    # Maximum value is 60
+    10: 50
+    random: 0
+    random-low: 0 # random value weighted towards lower values
+    random-high: 0 # random value weighted towards higher values
+    random-range-0-60: 0 # random value between 0 and 60
+
+  trap_percentage:
+    # Percentage of the filler items that are traps (Energy Drain, Slowness, Tax).
+    #
+    # You can define additional values between the minimum and maximum values.
+    # Minimum value is 0
+    # Maximum value is 100
+    20: 50
+    random: 0
+    random-low: 0 # random value weighted towards lower values
+    random-high: 0 # random value weighted towards higher values
+    random-range-0-100: 0 # random value between 0 and 100
+
+  trap_link:
+    # Whether your received traps are linked to other players.
+    # You will also receive linked traps from other players with Trap Link enabled, when Forager has a similar trap.
     'false': 50
     'true': 0
 

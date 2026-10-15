@@ -99,5 +99,36 @@
   },
   "Misc": {
     "Nothing!": { "id": 364, "classification": "Filler" }
+  },
+
+  "Filler": {
+    "Small Coin Bag": { "id": 400, "classification": "Filler", "weight": 10 },
+    "Medium Coin Bag": { "id": 401, "classification": "Filler", "weight": 6 },
+    "Large Coin Bag": { "id": 402, "classification": "Filler", "weight": 3 },
+    "Wood Bundle": { "id": 410, "classification": "Filler", "weight": 4 },
+    "Stone Bundle": { "id": 411, "classification": "Filler", "weight": 4 },
+    "Coal Bundle": { "id": 412, "classification": "Filler", "weight": 4 },
+    "Ore Bundle": { "id": 413, "classification": "Filler", "weight": 4 },
+    "Fiber Bundle": { "id": 414, "classification": "Filler", "weight": 3 },
+    "Sand Bundle": { "id": 415, "classification": "Filler", "weight": 3 },
+    "Food Basket": { "id": 420, "classification": "Filler", "weight": 6 },
+    "Feast": { "id": 421, "classification": "Filler", "weight": 3 },
+    "Gem Pouch": { "id": 430, "classification": "Filler", "weight": 4 },
+    "Legendary Gem": { "id": 431, "classification": "Filler", "weight": 1 },
+    "Seed Pack": { "id": 440, "classification": "Filler", "weight": 5 },
+    "Random Potion": { "id": 450, "classification": "Filler", "weight": 4 },
+    "Healing Potions": { "id": 451, "classification": "Filler", "weight": 4 },
+    "Bug Jar": { "id": 460, "classification": "Filler", "weight": 3 },
+    "Bottled Fairy": { "id": 461, "classification": "Filler", "weight": 1 },
+    "Fish Bucket": { "id": 470, "classification": "Filler", "weight": 4 },
+    "Speed Boost": { "id": 480, "classification": "Filler", "weight": 3 },
+    "Regeneration": { "id": 481, "classification": "Filler", "weight": 3 },
+    "Boundless Energy": { "id": 482, "classification": "Filler", "weight": 3 }
+  },
+
+  "Traps": {
+    "Energy Drain Trap": { "id": 500, "classification": "Trap", "weight": 1 },
+    "Slowness Trap": { "id": 501, "classification": "Trap", "weight": 1 },
+    "Tax Trap": { "id": 502, "classification": "Trap", "weight": 1 }
   }
 }

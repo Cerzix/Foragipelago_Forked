@@ -85,6 +85,11 @@
             global.pendingSkillPoints++
         }
     }
+    variable_global_set("fillerlist",ds_map_find_value(global.json,"Filler"))
+    var filler = variable_global_get("fillerlist","list")
+    if(!is_undefined(filler)){ //Older clients don't send it
+        global.fillerReceived = ds_list_to_array(filler) //Given one by one in update_filler
+    }
 
 #define get_datapackage(str_json)
     if is_undefined(str_json) || !is_string(str_json){
@@ -141,16 +146,30 @@
 #define send_death() //The player died, the client sends it to the other DeathLink players if it's enabled
     http_post_string(global.URL + "Death","")
 
+#define send_trap(trap) //A trap item was played, the client sends it to the other TrapLink players if it's enabled
+    http_post_string(global.URL + "Trap","{\"Trap\": " + string(trap) + "}")
+
 #define send_deathpoll
     http_get(global.URL + "Deathpoll")
 
-#define get_deathpoll(str_json) //{"Death" : 1, "Cause" : "..."} when another DeathLink player died
+#define get_deathpoll(str_json) //{"Death" : 1, "Cause" : "...", "Traps" : [501]} for DeathLink and TrapLink
     if is_undefined(str_json) || !is_string(str_json){
         return
     }
     variable_global_set("deathjson",json_decode(str_json))
     var death = variable_global_get("deathjson","map")
-    if(is_undefined(death) || ds_map_find_value(death,"Death") != 1){
+    if(is_undefined(death)){
+        return
+    }
+    variable_global_set("linkedtraps",ds_map_find_value(death,"Traps"))
+    var traps = variable_global_get("linkedtraps","list")
+    if(!is_undefined(traps)){
+        traps = ds_list_to_array(traps)
+        for(var i = 0; i < array_length(traps); i++){
+            global.linkedTraps[array_length(global.linkedTraps)] = traps[i]
+        }
+    }
+    if(ds_map_find_value(death,"Death") != 1){
         return
     }
     var cause = ds_map_find_value(death,"Cause")
