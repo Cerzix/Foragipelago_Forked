@@ -10,6 +10,9 @@ The mod works on Steam and probably on GOG.
 2. Double click the [forager.apworld](https://github.com/olixx12/Foragipelago/releases) file or move it to Archipelago/custom_worlds/ (Requires Archipelago to be already downloaded)
 3. Follow the [instructions](https://archipelago.gg/tutorial/Archipelago/setup_en), to install Archipelago and host a game
 
+> This fork keeps the apworld source in `apworld/forager` (based on the 0.2 apworld, with every progressive tool tier now always in the item pool).
+> Run `python build_release.py` to build `dist/forager.apworld`, `dist/Foragipelago.zip` and `dist/Forager.yaml`, and use them instead of the ones from the releases page.
+
 ### Steam (Workshop Install)
 **Warning:** The Steam workshop automatically updates the mod when a new version is available. 
 If you need an older version, then you will need to follow the manual installation instruction below.
@@ -52,6 +55,10 @@ The mods folder for Linux should be located at: `~/.steam/steam/steamapps/compat
 - If you have skill points, then a specific skill is buyable
 - If you have no skill points, all skills are visible, helps with knowing what skill to hint for.
 - Never, EVER, type /recompile while inside a save. Stuff will break.
+- Checks done while the Forager Client is closed or disconnected are remembered in the save and resent about once a minute, so they aren't lost anymore.
+- Rods (Fire, Thunder, Ice, Necro) have no crafting checks in the apworld, so the Spirit Crystal crafts them normally. Progressive rods are still received from Archipelago.
+- DeathLink: enable `death_link` in your yaml. When you die in Forager, everyone with DeathLink dies, and the other way around. Deaths are checked every few seconds.
+- If a received tool is dropped and left behind (for example in a dungeon), it is dropped again once you change room or reload the save.
 - For any questions or issues, just write a message in the [Discord channel](https://discord.com/channels/731205301247803413/1196567161691443220) :)
 
 
@@ -69,3 +76,10 @@ Checks:
 
 Goals:
 - Reach level 65
+
+---
+
+### Testing without Archipelago
+`Server.py` is a mock of the Forager Client's local HTTP API (port 8000). Run `python Server.py` instead of the Forager Client, then start Forager.
+Type `help` in its console to send gear and skills, change the goal level, and see the checks the mod sends.
+`kill` sends a DeathLink to the game, and deaths in the game are printed in the console.

@@ -1,235 +1,216 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+"""Mock of the Archipelago Forager Client's local HTTP API, to test the mod without an Archipelago server.
+
+It answers the same endpoints as the real client (worlds/forager/Client.py), on the same port:
+    GET  /Items        -> {"Gear": {"pickaxe": 2, ...}, "Skills": [0, 1, ...]}  (64 skills)
+    GET  /Datapackage  -> {"Gear": {<gear>: <crafting checks done>}, "Goal": "level", "GoalLevel": 65, "EasierCraft": 0}
+    POST /Locations    <- {"Locations": [202, 302, ...]}
+    POST /Goal
+    POST /Death        the player died (DeathLink)
+    GET  /Deathpoll    -> {"Death": 1, "Cause": "..."} once after the "kill" command, else {"Death": 0, "Cause": ""}
+
+Do not run it at the same time as the real Forager Client, both use port 8000.
+Type "help" in the console for the commands.
+"""
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import threading
-from urllib.parse import urlparse, parse_qs
 
-gear_index = {
-    "pickaxe": 0,
-    "shovel": 1,
-    "sword": 2,
-    "bow": 3,
-    "lightning": 4,
-    "ice": 5,
-    "fire": 6,
-    "amulet": 7,
-    "boot": 8,
-    "glove": 9,
-    "book": 10,
-    "backpack" : 11,
-    "wallet" : 12,
-    "nerdy_glasses": 13,
-    "top_hat" : 14,
-    "pink_bow" : 15,
-    "lantern" : 16,
-    "skull_key" : 17,
-    "skeleton_mask" : 18,
-    "fairy_aura" : 19,
-    "quiver" : 20,
-    "vampire_wings" : 21,
-    "shield" : 22,
-    "magic_scepter" : 23,
-    "holy_relic": 24,
-    "ancient" : 25,
-    "fire" : 26,
-    "frozen_galaxy":27,
-    "skull":28,
-    "ancient_galaxy":29,
-    "fire_galaxy":30,
-    "frozen_galaxy":31,
-    "skull_galaxy":32,
-    "museum": 33,
-    "death": 34,
-    "obliterator": 35,
-    "fish_net" : 36,
-    "merchant_medallion" : 37,
-    "lunar_medalion": 38,
-    "hammer": 39,
-    "fishing": 40
+PORT = 8000
+
+# Progressive item counts in the apworld, keyed by the names the mod uses
+gear_max = {
+    "pickaxe": 8, "shovel": 5, "sword": 8, "bow": 8, "amulet": 8, "wallet": 8, "gloves": 8, "book": 8,
+    "boots": 8, "backpack": 5, "fire rod": 2, "thunder rod": 2, "ice rod": 2, "necro rod": 2,
+    "hammer": 1, "fishing rod": 1, "obliterator": 1,
 }
 
-skill_index = {
-    "industry" : 0,
-    "capentry" : 1,
-    "masonry": 2,
-    "machinery" : 3,
-    "sewing": 4,
-    "craftsmenship": 5,
-    "manufacturing": 6,
-    "drilling": 7,
-    "textiles" : 8,
-    "smelting" : 9,
-    "railroads" : 10,
-    "automation": 11,
-    "jewlery": 12,
-    "physics": 13,
-    "engineering": 14,
-    "lasers": 15,
-    "economy" : 16,
-    "storage" : 17,
-    "gambling" : 18,
-    "optics": 19,
-    "trade" : 20,
-    "banking" : 21,
-    "management" : 22,
-    "architecture" : 23,
-    "bargin" :24,
-    "capitalsim" : 25,
-    "treasury" : 26,
-    "autorepair": 27,
-    "supply": 28,
-    "artistry": 29,
-    "colonization" : 30,
-    "logistics" : 31,
-    "foraging" : 32,
-    "gathering" : 33,
-    "farming" : 34,
-    "pet": 35,
-    "hunting" :36,
-    "fishing" : 37,
-    "mining" : 38,
-    "geology" : 39,
-    "ballistics" : 40,
-    "cooking" : 41,
-    "calciverous" : 42,
-    "prospecting" : 43,
-    "looting" : 44,
-    "gluttony": 45,
-    "prowess" : 46,
-    "deposit" : 47,
-    "magic" : 48,
-    "alchemy": 49,
-    "inscription" : 50,
-    "thaumaturgy" : 51,
-    "combat" : 52,
-    "evasion" : 53,
-    "reagency" : 54,
-    "faith" : 55,
-    "renewal" : 56,
-    "spellbind" : 57,
-    "transmutation" : 58,
-    "conjuration" : 59,
-    "destruction" : 60,
-    "spirituality" : 61,
-    "summoning" : 62,
-    "astrology" : 63
+skill_names = [
+    "industry", "carpentry", "masonry", "machinery", "sewing", "craftsmanship", "manufacturing", "drilling",
+    "textiles", "smelting", "railroads", "automation", "jewelry", "physics", "engineering", "lasers",
+    "economy", "storage", "gambling", "optics", "trade", "banking", "management", "architecture",
+    "bargain", "capitalism", "treasury", "autorepair", "supply", "artistry", "colonization", "logistics",
+    "foraging", "gathering", "farming", "pet", "hunting", "fishing", "mining", "geology",
+    "ballistics", "cooking", "calciverous", "prospecting", "looting", "gluttony", "prowess", "deposit",
+    "magic", "alchemy", "inscription", "thaumaturgy", "combat", "evasion", "reagency", "faith",
+    "renewal", "spellbind", "transmutation", "conjuration", "destruction", "spirituality", "summoning", "astrology",
+]
+
+# Crafting location ids of the apworld (data/locations.json), the datapackage counts the checked ones per gear
+gear_locations = {
+    "boots": range(10, 18), "pickaxe": range(202, 210), "shovel": range(211, 216), "sword": range(221, 229),
+    "bow": range(231, 239), "amulet": range(241, 249), "wallet": range(251, 259), "gloves": range(261, 269),
+    "book": range(271, 279), "backpack": range(282, 287),
+    "hammer": range(299, 300), "fishing rod": range(300, 301), "obliterator": range(301, 302),
+}
+datapackage_gear = ["boots", "pickaxe", "shovel", "sword", "bow", "amulet", "wallet", "gloves", "book", "backpack"]
+
+lock = threading.Lock()
+state = {
+    "gear": {},
+    "skills": [0] * 64,
+    "checked": set(),
+    "goal_level": 65,
+    "easier_craft": 0,
+    "goaled": False,
+    "pending_death": None,
+    "deaths": 0,
 }
 
-shared_data = {
-    "global_gears" : [114, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, 148, 154, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4],
-    "global_level": 1,
-    "global_skills" : [1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],
-    "archi_level" : 1,
-    "archi_gears" : [114, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, 148, 154, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4],
-    "archi_skills": [1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],
-    "forager_gears": [114, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, 148, 154, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4],
-    "forager_level": 1,
-    "forager_skills": [1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],
-    "foragerHasUpdate": False,
-    "archiHasUpdate": False,
-}
 
-class ArchiHandler(BaseHTTPRequestHandler):
-
-    def __init__(self, *args, **kwargs):
-
-        # works with shared_data now
-        #self.global_gears = [114, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, 148, 154, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4]
-        #self.global_level = 1
-        #self.archi_gears = []
-        #self.archi_level = 1
-        #self.forager_gears = []
-        #self.forager_level = 1
-        #self.foragerHasUpdate = False
-        #self.archieHasUpdate = False
+def location_name(loc: int) -> str:
+    if 302 <= loc <= 365:
+        return f"Level {loc - 300}"
+    for name, ids in gear_locations.items():
+        if loc in ids:
+            return f"{name} craft #{ids.index(loc) + 1}"
+    return "not a location in the apworld"
 
 
-        super().__init__(*args, **kwargs)
+class ClientHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass  # Keep the console readable, every request is not interesting
 
-    def do_POST(self):
-        parsed_path = urlparse(self.path)
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        if parsed_path.path == "/gear":
-            gears = post_data.decode('utf-8')
-            gears = gears.split('{')[2].split('}')[0][1:].split(',')
-            g_gears = []
-            for gear in gears:
-                g_gears.append(gear)
-            print(g_gears)
-            shared_data["forager_gears"] = g_gears
-            self.foragerHasGearUpdate()
-
-        elif parsed_path.path == "/level":
-            level = int(post_data.decode('utf-8'))
-            shared_data["forager_level"] = level
-        
-        elif parsed_path.path == "/check":
-            check = post_data.decode('utf-8')
-            print(check)
-
-
+    def send_json(self, data):
+        body = json.dumps(data).encode()
         self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(b"OK")
+        self.wfile.write(body)
 
     def do_GET(self):
-        parsed_path = urlparse(self.path)
-        if parsed_path.path == "/hasUpdate":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(str(shared_data["archiHasUpdate"]).encode())
-        elif parsed_path.path == "/updateGear":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(str(shared_data["global_gears"]).encode())
-        else:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"Not Found")
+        with lock:
+            if self.path == "/Items":
+                return self.send_json({"Gear": dict(state["gear"]), "Skills": list(state["skills"])})
+            if self.path == "/Datapackage":
+                gear = {}
+                for name in datapackage_gear:
+                    done = sum(1 for loc in gear_locations[name] if loc in state["checked"])
+                    if done:
+                        gear[name] = done
+                return self.send_json({"Gear": gear, "Goal": "level", "GoalLevel": state["goal_level"],
+                                       "EasierCraft": state["easier_craft"]})
+            if self.path == "/Deathpoll":
+                cause, state["pending_death"] = state["pending_death"], None
+                return self.send_json({"Death": int(cause is not None), "Cause": cause or ""})
+        self.send_response(404)
+        self.end_headers()
 
-    def foragerHasGearUpdate(self):
-        diff_list = []
-        diff = False
-        print(type(self.forager_gears))
-        if len(self.forager_gears) == 41:
-            for i in range(41):
-                diff_list.append(int(self.forager_gears[i]) - int(shared_data["global_gears"][i]))
-                if diff_list[i] != 0:
-                    diff = True
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length).decode("utf-8")
+        if self.path == "/Locations":
+            try:
+                locations = json.loads(body)["Locations"]
+            except (ValueError, KeyError, TypeError):
+                print(f"\n[mod] invalid /Locations body: {body!r}")
+                self.send_response(400)
+                self.end_headers()
+                return
+            with lock:
+                new = [loc for loc in locations if loc not in state["checked"]]
+                state["checked"].update(locations)
+            for loc in new:
+                print(f"\n[mod] check {loc} : {location_name(loc)}")
+            return self.send_json({"message": "ok"})
+        if self.path == "/Goal":
+            with lock:
+                first = not state["goaled"]
+                state["goaled"] = True
+            if first:
+                print("\n[mod] GOAL COMPLETED")
+            return self.send_json({"message": "ok"})
+        if self.path == "/Death":
+            with lock:
+                state["deaths"] += 1
+            print(f"\n[mod] player died, a DeathLink would be sent (death #{state['deaths']})")
+            return self.send_json({"message": "ok"})
+        self.send_response(404)
+        self.end_headers()
 
-        print(diff_list)
-        print(diff)
-def start_HTTP_Server():
-    print("Starting")
-    server = HTTPServer(('0.0.0.0', 8000), ArchiHandler)
 
+HELP = """Commands:
+  give <gear> [amount]   send progressive gear (names: """ + ", ".join(gear_max) + """)
+  skill <name|index|all> send a skill
+  goal <level>           set the goal level of the datapackage
+  easy <on|off>          toggle EasierCraft in the datapackage
+  uncheck <id|all>       forget checked locations (to test the resync)
+  kill [cause]           send a DeathLink to the mod
+  status                 show what was sent and received
+  stop                   quit"""
+
+
+def run_console():
+    while True:
+        try:
+            cmd = input("> ").strip()
+        except EOFError:
+            return
+        if not cmd:
+            continue
+        parts = cmd.split()
+        verb, args = parts[0].lower(), parts[1:]
+        with lock:
+            if verb == "stop":
+                return
+            elif verb == "help":
+                print(HELP)
+            elif verb == "give" and args:
+                amount = 1
+                if args[-1].isdigit():
+                    amount = int(args.pop())
+                name = " ".join(args).lower()
+                if name not in gear_max:
+                    print(f"Unknown gear {name!r}")
+                    continue
+                state["gear"][name] = state["gear"].get(name, 0) + amount
+                print(f"{name} : {state['gear'][name]} received (the apworld has {gear_max[name]})")
+            elif verb == "skill" and args:
+                arg = args[0].lower()
+                if arg == "all":
+                    state["skills"] = [1] * 64
+                    print("All skills sent")
+                    continue
+                index = int(arg) if arg.isdigit() else (skill_names.index(arg) if arg in skill_names else -1)
+                if not 0 <= index < 64:
+                    print(f"Unknown skill {arg!r}")
+                    continue
+                state["skills"][index] = 1
+                print(f"Skill {skill_names[index]} ({index}) sent")
+            elif verb == "goal" and args and args[0].isdigit():
+                state["goal_level"] = int(args[0])
+                print(f"Goal level : {state['goal_level']}")
+            elif verb == "easy" and args:
+                state["easier_craft"] = 1 if args[0].lower() == "on" else 0
+                print(f"EasierCraft : {state['easier_craft']}")
+            elif verb == "uncheck" and args:
+                if args[0] == "all":
+                    state["checked"].clear()
+                elif args[0].isdigit():
+                    state["checked"].discard(int(args[0]))
+                print(f"{len(state['checked'])} checked locations left")
+            elif verb == "kill":
+                state["pending_death"] = " ".join(args) or "Tester died in another game"
+                print(f"DeathLink queued : {state['pending_death']}")
+            elif verb == "status":
+                print("Gear received :", state["gear"] or "nothing")
+                print("Skills received :", [skill_names[i] for i in range(64) if state["skills"][i]] or "nothing")
+                print("Checked :", sorted(state["checked"]) or "nothing")
+                print(f"Goal level : {state['goal_level']}, goal done : {state['goaled']}, "
+                      f"EasierCraft : {state['easier_craft']}, deaths sent by the mod : {state['deaths']}")
+            else:
+                print(HELP)
+
+
+def main():
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), ClientHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    print(f"Mock Forager Client listening on http://127.0.0.1:{PORT}/ , type help for the commands")
+    try:
+        run_console()
+    finally:
+        server.shutdown()
 
-    cmd=""
 
-    while(cmd != "stop"):
-        cmd = input("> ")
-        values = cmd.split(" ")
-
-        if values[0].lower() == 'set':
-            if values[1].lower() == 'level':
-                shared_data['archi_level'] = values[2]
-                shared_data['archiHasUpdate'] = True
-            if values[1].lower() == 'gear':
-                shared_data['archiHasUpdate'] = True
-                if values[2].lower() in gear_index:
-                    shared_data['global_gears'][gear_index[values[2]]] = int(values[3])
-            if values[1].lower() == 'skills':
-                shared_data['archiHasUpdate'] = True
-                print("Setting skills")
-
-        if values[0].lower() == 'get':
-            if values[1].lower() == 'level':
-                print(shared_data['archi_level'])
-            if values[1].lower() == 'gear':
-                print(shared_data['global_gears'])
-            if values[1].lower() == 'skills':
-                print(shared_data['archi_skills'])
-start_HTTP_Server()
+if __name__ == "__main__":
+    main()

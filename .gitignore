@@ -1,2 +1,4 @@
 **/gmedit-editor-beta-windows/
 **/ForagerModUploader-win32-x64/
+**/__pycache__/
+dist/

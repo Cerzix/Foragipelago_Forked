@@ -1,11 +1,11 @@
 #define create_items //Create data structures to store items sent by AP.
     global.f_Gear = ds_map_create(); //Store recieved progressive Gear, and how many
-    for(var i; i < array_length(global.AP_Gear_Name); i++){
+    for(var i = 0; i < array_length(global.AP_Gear_Name); i++){
         ds_map_set(global.f_Gear,global.AP_Gear_Name[i],0);
     }
     global.f_skills = []; //Store recieved skills
     global.f_skill_count = 0 //Store how many skills were recieved.
-    for(var i; i < 64; i++){
+    for(var i = 0; i < 64; i++){
         global.f_skills[i] = 0;
     }
 
@@ -51,7 +51,6 @@
     shovels[2] = Item.WaterShovel
     shovels[3] = Item.NomadShovel
     shovels[4] = Item.RoyalShovel
-    shovels[5] = Item.RoboticShovel
     shovels[5] = Item.RoboticShovel
     ds_map_set(global.playerGearMap, "shovel",shovels)
     var amulets = []

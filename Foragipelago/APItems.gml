@@ -3,7 +3,7 @@
     global.AP_Logo = sprite_add("Resources\\Sprites\\logo.png", 1, false, false, 12, 12)
     global.AP_Gear_Name = ["pickaxe","shovel","sword","bow","ice rod","fire rod","thunder rod","amulet","boots","gloves","book","backpack","wallet","necro rod","obliterator","hammer","fishing rod"] 
     global.AP_Gear_IDs = ds_map_create();
-    var AP_base_IDs = [202,211,221,231,296,292,294,241,10,261,271,282,251,298,301,299,300] //Base ids for the locations in ap, for each type of gear
+    var AP_base_IDs = [202,211,221,231,-1,-1,-1,241,10,261,271,282,251,-1,301,299,300] //Base ids for the locations in ap, for each type of gear (-1 : no location, rods)
     global.Toolbar_IDs = [];
     for(var i = 0; i < 13; i++){
         global.Toolbar_IDs[i] = i;
@@ -13,6 +13,7 @@
     global.Toolbar_IDs[15] = 39; //Hammer
     global.Toolbar_IDs[16] = 40; //Fishing rod
     global.AP_Items = ds_map_create();
+    global.AP_Gear_Source = ds_map_create(); //Vanilla item each AP item copies its recipe and unlock state from
     global.AP_Gear_Tiers = ds_map_create();
     ds_map_set(global.AP_Gear_Tiers,"shovel",5)
     ds_map_set(global.AP_Gear_Tiers,"sword",8)
@@ -33,6 +34,7 @@
     ds_map_set(global.AP_Gear_Tiers,"obliterator",1)
     for(var k = 0; k < array_length(global.AP_Gear_Name); k++){
         var AP_Gear = []
+        var AP_Source = []
         var tier = ds_map_find_value(global.AP_Gear_Tiers,global.AP_Gear_Name[k])
         for (var i = 0; i < tier; i++){
             var craft_tier = i+1
@@ -58,9 +60,11 @@
             )
             GearCategoryAddItems(gearAP, AP_Item)
             AP_Gear[i] = AP_Item
+            AP_Source[i] = item
         }
         ds_map_set(global.AP_Gear_IDs, global.AP_Gear_Name[k], AP_base_IDs[k])
         ds_map_set(global.AP_Items, global.AP_Gear_Name[k], AP_Gear)
+        ds_map_set(global.AP_Gear_Source, global.AP_Gear_Name[k], AP_Source)
     }
     global.AP_Gear_Index = ds_map_create();
     var AP_Forge_Index = ds_map_create();
@@ -97,17 +101,10 @@
     ds_map_set(global.AP_Gear_Station, "book", "inscription")
     ds_map_set(global.AP_Gear_Index, "inscription", AP_Inscription_Index)
     
-    var AP_Spirit_Index = ds_map_create();
-    ds_map_set(AP_Spirit_Index, "fire rod", 4)
-    ds_map_set(global.AP_Gear_Station,"fire rod","spirit")
-    ds_map_set(AP_Spirit_Index, "thunder rod", 5)
-    ds_map_set(global.AP_Gear_Station,"thunder rod","spirit")
-    ds_map_set(AP_Spirit_Index, "ice rod", 6)
-    ds_map_set(global.AP_Gear_Station,"necro rod","spirit")
-    ds_map_set(AP_Spirit_Index, "necro rod", 7)
-    ds_map_set(global.AP_Gear_Station,"ice rod","spirit")
-    ds_map_set(global.AP_Gear_Index,"spirit",AP_Spirit_Index)
-    
+    //Rods have no crafting locations in the apworld (it skips Fire/Meteor/Thunder/Storm/Ice/Blizzard/Necro/Death Rod),
+    //so they get no station entry and the Spirit Crystal stays vanilla. Progressive rods are still received and dropped.
+    //Their old spirit crystal indexes were fire 4, thunder 5, ice 6, necro 7.
+
     var AP_Factory_Index = ds_map_create();
     ds_map_set(AP_Factory_Index, "obliterator",8)
     ds_map_set(global.AP_Gear_Station,"obliterator","factory")
